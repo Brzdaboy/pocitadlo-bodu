@@ -11,14 +11,6 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <script>
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js')
-    .then(() => console.log('Service Worker registrován'))
-    .catch(err => console.log('Chyba registrace SW:', err));
-}
-</script>
 </head>
 <body class="bg-gray-100 min-h-screen p-4">
   <div class="max-w-md mx-auto space-y-4">
@@ -61,6 +53,13 @@ if ('serviceWorker' in navigator) {
   </div>
 
 <script>
+  // Registrace Service Workera pro aktualizace
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js')
+      .then(() => console.log('Service Worker registrován'))
+      .catch(err => console.log('Chyba registrace SW:', err));
+  }
+
   let currentGame = null;
   let games = JSON.parse(localStorage.getItem('games') || '{}');
 
@@ -98,17 +97,9 @@ if ('serviceWorker' in navigator) {
     renderLeaderboard();
   }
 
-  function getPlayers() {
-    return games[currentGame].players;
-  }
-
-  function getRounds() {
-    return games[currentGame].rounds;
-  }
-
-  function saveCurrentGame() {
-    saveGames();
-  }
+  function getPlayers() { return games[currentGame].players; }
+  function getRounds() { return games[currentGame].rounds; }
+  function saveCurrentGame() { saveGames(); }
 
   function addPlayer() {
     const players = getPlayers();
@@ -122,7 +113,6 @@ if ('serviceWorker' in navigator) {
     const players = getPlayers();
     const playersDiv = document.getElementById('players');
     playersDiv.innerHTML = '';
-
     players.forEach((p, i) => {
       const div = document.createElement('div');
       div.className = 'flex gap-2 items-center';
@@ -135,106 +125,52 @@ if ('serviceWorker' in navigator) {
     });
   }
 
-  function renamePlayer(i, name) {
-    getPlayers()[i].name = name;
-    saveCurrentGame();
-    renderLeaderboard();
-  }
-
-  function removePlayer(i) {
-    if (!confirm(`Opravdu smazat hráče ${getPlayers()[i].name}?`)) return;
-    getPlayers().splice(i, 1);
-    saveCurrentGame();
-    renderPlayers();
-    renderLeaderboard();
-  }
+  function renamePlayer(i, name) { getPlayers()[i].name = name; saveCurrentGame(); renderLeaderboard(); }
+  function removePlayer(i) { if (!confirm(`Opravdu smazat hráče ${getPlayers()[i].name}?`)) return; getPlayers().splice(i,1); saveCurrentGame(); renderPlayers(); renderLeaderboard(); }
 
   function confirmRound() {
     const maxPoints = parseInt(document.getElementById('maxPoints').value);
     const scores = document.querySelectorAll('.score');
     const round = [];
-
-    scores.forEach((input, i) => {
-      const points = parseInt(input.value || 0);
-      if (!isNaN(maxPoints) && points > maxPoints) {
-        alert('Překročen maximální počet bodů');
-        throw new Error();
-      }
-      round.push({ name: getPlayers()[i].name, points });
-      input.value = '';
-    });
-
+    scores.forEach((input,i)=>{ const points = parseInt(input.value||0); if(!isNaN(maxPoints)&&points>maxPoints){alert('Překročen maximální počet bodů'); throw new Error();} round.push({name:getPlayers()[i].name,points}); input.value='';});
     getRounds().push(round);
-    saveCurrentGame();
-    renderHistory();
-    renderLeaderboard();
+    saveCurrentGame(); renderHistory(); renderLeaderboard();
   }
 
   function renderHistory() {
-    const h = document.getElementById('history');
-    h.innerHTML = '';
-
-    getRounds().forEach((r, roundIndex) => {
-      const details = document.createElement('details');
-      details.className = 'border rounded-xl p-2';
-      const summary = document.createElement('summary');
-      summary.className = 'flex justify-between items-center cursor-pointer';
-      summary.innerHTML = `Kolo ${roundIndex + 1} <span class="text-blue-500">✏️ Upravit</span>`;
+    const h=document.getElementById('history'); h.innerHTML='';
+    getRounds().forEach((r,roundIndex)=>{
+      const details=document.createElement('details');
+      details.className='border rounded-xl p-2';
+      const summary=document.createElement('summary');
+      summary.className='flex justify-between items-center cursor-pointer';
+      summary.innerHTML=`Kolo ${roundIndex+1} <span class="text-blue-500">✏️ Upravit</span>`;
       details.appendChild(summary);
-
-      const contentDiv = document.createElement('div');
-      contentDiv.className = 'mt-2 space-y-1';
-
-      r.forEach((p, i) => {
-        const row = document.createElement('div');
-        row.className = 'flex gap-2 items-center';
-        row.innerHTML = `<span class="flex-1">${p.name}:</span>` +
-                        `<input type='number' value='${p.points}' min='0' class='border rounded-xl p-1 w-20' onchange='updateHistory(${roundIndex}, ${i}, this.value)' inputmode="numeric" pattern="[0-9]*" />`;
-        contentDiv.appendChild(row);
-      });
-
-      details.appendChild(contentDiv);
-      h.appendChild(details);
+      const contentDiv=document.createElement('div'); contentDiv.className='mt-2 space-y-1';
+      r.forEach((p,i)=>{ const row=document.createElement('div'); row.className='flex gap-2 items-center'; row.innerHTML=`<span class="flex-1">${p.name}:</span><input type='number' value='${p.points}' min='0' class='border rounded-xl p-1 w-20' onchange='updateHistory(${roundIndex},${i},this.value)' inputmode="numeric" pattern="[0-9]*" />`; contentDiv.appendChild(row);});
+      details.appendChild(contentDiv); h.appendChild(details);
     });
   }
 
-  function updateHistory(roundIndex, playerIndex, value) {
-    getRounds()[roundIndex][playerIndex].points = parseInt(value) || 0;
-    saveCurrentGame();
-    renderLeaderboard();
+  function updateHistory(roundIndex,playerIndex,value){getRounds()[roundIndex][playerIndex].points=parseInt(value)||0; saveCurrentGame(); renderLeaderboard();}
+
+  function renderLeaderboard(){
+    const totals={}; getRounds().flat().forEach(r=>totals[r.name]=(totals[r.name]||0)+r.points);
+    const list=document.getElementById('leaderboard'); list.innerHTML='';
+    Object.entries(totals).sort((a,b)=>b[1]-a[1]).forEach(([name,pts],i)=>{
+      const li=document.createElement('li'); li.className='flex justify-between px-3 py-2 rounded-xl mb-1';
+      if(i===0) li.classList.add('bg-yellow-300','font-bold');
+      if(i===1) li.classList.add('bg-gray-300');
+      if(i===2) li.classList.add('bg-amber-600','text-white');
+      li.innerHTML=`<span>${i+1}. ${name}</span><span>${pts} b</span>`;
+      list.appendChild(li);
+    });
   }
 
-  function renderLeaderboard() {
-    const totals = {};
-    getRounds().flat().forEach(r => totals[r.name] = (totals[r.name] || 0) + r.points);
-
-    const list = document.getElementById('leaderboard');
-    list.innerHTML = '';
-
-    Object.entries(totals)
-      .sort((a, b) => b[1] - a[1])
-      .forEach(([name, pts], i) => {
-        const li = document.createElement('li');
-        li.className = 'flex justify-between px-3 py-2 rounded-xl mb-1';
-        if (i === 0) li.classList.add('bg-yellow-300', 'font-bold');
-        if (i === 1) li.classList.add('bg-gray-300');
-        if (i === 2) li.classList.add('bg-amber-600', 'text-white');
-        li.innerHTML = `<span>${i + 1}. ${name}</span><span>${pts} b</span>`;
-        list.appendChild(li);
-      });
-  }
-
-  function resetGame() {
-    if (!confirm('Opravdu resetovat hru?')) return;
-    games[currentGame] = { players: [], rounds: [] };
-    saveCurrentGame();
-    renderPlayers();
-    renderHistory();
-    renderLeaderboard();
-  }
+  function resetGame(){ if(!confirm('Opravdu resetovat hru?')) return; games[currentGame]={players:[],rounds:[]}; saveCurrentGame(); renderPlayers(); renderHistory(); renderLeaderboard(); }
 
   // INIT
-  if (Object.keys(games).length > 0) switchGame(Object.keys(games)[0]);
+  if(Object.keys(games).length>0) switchGame(Object.keys(games)[0]);
   else populateGameTabs();
 </script>
 </body>
