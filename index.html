@@ -20,13 +20,11 @@
     <!-- Správa her jako horizontální scroll tabs -->
     <div class="bg-white rounded-2xl shadow p-2 overflow-x-auto flex gap-2">
       <div id="gameTabs" class="flex gap-2"></div>
-      <button onclick="newGame()" class="px-3 py-1 rounded-xl font-semibold border border-gray-400 text-gray-600">+ Nová hra</button>
+      <button onclick="newGame()" class="px-3 py-1 rounded-xl font-semibold border border-gray-400 text-gray-600">+ Přidat hru</button>
     </div>
 
-    <!-- Nastavení -->
+    <!-- Přidat hráče -->
     <div class="bg-white rounded-2xl shadow p-4">
-      <label class="block text-sm font-medium mb-1">Maximální počet bodů (volitelné)</label>
-      <input id="maxPoints" type="number" min="1" placeholder="bez limitu" class="w-full border rounded-xl p-2 mb-3" />
       <button onclick="addPlayer()" class="w-full bg-blue-600 text-white py-2 rounded-xl font-semibold">Přidat hráče</button>
     </div>
 
@@ -53,7 +51,6 @@
   </div>
 
 <script>
-  // Registrace Service Workera pro aktualizace
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js')
       .then(() => console.log('Service Worker registrován'))
@@ -117,13 +114,12 @@
   function renamePlayer(i,name){getPlayers()[i].name=name; saveCurrentGame(); renderLeaderboard();}
   function removePlayer(i){if(!confirm(`Opravdu smazat hráče ${getPlayers()[i].name}?`)) return; getPlayers().splice(i,1); saveCurrentGame(); renderPlayers(); renderLeaderboard();}
 
-  function confirmRound(){const maxPoints=parseInt(document.getElementById('maxPoints').value);const scores=document.querySelectorAll('.score');const round=[];scores.forEach((input,i)=>{const points=parseInt(input.value||0);if(!isNaN(maxPoints)&&points>maxPoints){alert('Překročen maximální počet bodů'); throw new Error();} round.push({name:getPlayers()[i].name,points}); input.value='';}); getRounds().push(round); saveCurrentGame(); renderHistory(); renderLeaderboard();}
+  function confirmRound(){const scores=document.querySelectorAll('.score');const round=[];scores.forEach((input,i)=>{const points=parseInt(input.value||0); round.push({name:getPlayers()[i].name,points}); input.value='';}); getRounds().push(round); saveCurrentGame(); renderHistory(); renderLeaderboard();}
   function renderHistory(){const h=document.getElementById('history'); h.innerHTML=''; getRounds().forEach((r,roundIndex)=>{const details=document.createElement('details'); details.className='border rounded-xl p-2'; const summary=document.createElement('summary'); summary.className='flex justify-between items-center cursor-pointer'; summary.innerHTML=`Kolo ${roundIndex+1} <span class="text-blue-500">✏️ Upravit</span>`; details.appendChild(summary); const contentDiv=document.createElement('div'); contentDiv.className='mt-2 space-y-1'; r.forEach((p,i)=>{ const row=document.createElement('div'); row.className='flex gap-2 items-center'; row.innerHTML=`<span class="flex-1">${p.name}:</span><input type='number' value='${p.points}' min='0' class='border rounded-xl p-1 w-20' onchange='updateHistory(${roundIndex},${i},this.value)' inputmode="numeric" pattern="[0-9]*" />`; contentDiv.appendChild(row);}); details.appendChild(contentDiv); h.appendChild(details);});}
   function updateHistory(roundIndex,playerIndex,value){getRounds()[roundIndex][playerIndex].points=parseInt(value)||0; saveCurrentGame(); renderLeaderboard();}
   function renderLeaderboard(){const totals={}; getRounds().flat().forEach(r=>totals[r.name]=(totals[r.name]||0)+r.points); const list=document.getElementById('leaderboard'); list.innerHTML=''; Object.entries(totals).sort((a,b)=>b[1]-a[1]).forEach(([name,pts],i)=>{ const li=document.createElement('li'); li.className='flex justify-between px-3 py-2 rounded-xl mb-1'; if(i===0) li.classList.add('bg-yellow-300','font-bold'); if(i===1) li.classList.add('bg-gray-300'); if(i===2) li.classList.add('bg-amber-600','text-white'); li.innerHTML=`<span>${i+1}. ${name}</span><span>${pts} b</span>`; list.appendChild(li);});}
   function resetGame(){if(!confirm('Opravdu resetovat hru?')) return; games[currentGame]={players:[],rounds:[]}; saveCurrentGame(); renderPlayers(); renderHistory(); renderLeaderboard();}
 
-  // INIT
   if(Object.keys(games).length>0) switchGame(Object.keys(games)[0]);
   else populateGameTabs();
 </script>
