@@ -117,11 +117,35 @@
   function renderHistory() {
     const h = document.getElementById('history');
     h.innerHTML = '';
-    rounds.forEach((r, i) => {
-      const div = document.createElement('div');
-      div.textContent = `Kolo ${i + 1}: ` + r.map(x => `${x.name} +${x.points}`).join(', ');
-      h.appendChild(div);
+
+    rounds.forEach((r, roundIndex) => {
+      const details = document.createElement('details');
+      details.className = 'border rounded-xl p-2';
+      const summary = document.createElement('summary');
+      summary.className = 'flex justify-between items-center cursor-pointer';
+      summary.innerHTML = `Kolo ${roundIndex + 1} <span class="text-blue-500">✏️ Upravit</span>`;
+      details.appendChild(summary);
+
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'mt-2 space-y-1';
+
+      r.forEach((p, i) => {
+        const row = document.createElement('div');
+        row.className = 'flex gap-2 items-center';
+        row.innerHTML = `<span class="flex-1">${p.name}:</span>` +
+                        `<input type='number' value='${p.points}' min='0' class='border rounded-xl p-1 w-20' onchange='updateHistory(${roundIndex}, ${i}, this.value)' />`;
+        contentDiv.appendChild(row);
+      });
+
+      details.appendChild(contentDiv);
+      h.appendChild(details);
     });
+  }
+
+  function updateHistory(roundIndex, playerIndex, value) {
+    rounds[roundIndex][playerIndex].points = parseInt(value) || 0;
+    save();
+    renderLeaderboard();
   }
 
   function renderLeaderboard() {
