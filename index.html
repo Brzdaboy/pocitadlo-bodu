@@ -11,6 +11,14 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js')
+    .then(() => console.log('Service Worker registrován'))
+    .catch(err => console.log('Chyba registrace SW:', err));
+}
+</script>
 </head>
 <body class="bg-gray-100 min-h-screen p-4">
   <div class="max-w-md mx-auto space-y-4">
