@@ -1,5 +1,5 @@
 // sw.js
-const CACHE_NAME = 'bodiky-cache-v1';
+const CACHE_NAME = 'bodiky-cache-v2';
 const FILES_TO_CACHE = [
   '/index.html',
   '/manifest.json',
@@ -39,3 +39,4 @@ self.addEventListener('fetch', event => {
     })
   );
 });
+
