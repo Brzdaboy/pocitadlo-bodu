@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Počítadlo bodů</title>
+  <title>Počítadlo bodů - Více her</title>
 
   <link rel="manifest" href="manifest.json">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -16,6 +16,12 @@
   <div class="max-w-md mx-auto space-y-4">
 
     <h1 class="text-2xl font-bold text-center">Počítadlo bodů</h1>
+
+    <!-- Správa her jako horizontální scroll tabs -->
+    <div class="bg-white rounded-2xl shadow p-2 overflow-x-auto flex gap-2">
+      <div id="gameTabs" class="flex gap-2"></div>
+      <button onclick="newGame()" class="bg-blue-600 text-white px-3 py-1 rounded-xl font-semibold">+ Nová hra</button>
+    </div>
 
     <!-- Nastavení -->
     <div class="bg-white rounded-2xl shadow p-4">
@@ -47,23 +53,65 @@
   </div>
 
 <script>
-  let playerCount = 0;
-  let rounds = JSON.parse(localStorage.getItem('rounds') || '[]');
-  let players = JSON.parse(localStorage.getItem('players') || '[]');
+  let currentGame = null;
+  let games = JSON.parse(localStorage.getItem('games') || '{}');
 
-  function save() {
-    localStorage.setItem('rounds', JSON.stringify(rounds));
-    localStorage.setItem('players', JSON.stringify(players));
+  function saveGames() {
+    localStorage.setItem('games', JSON.stringify(games));
+  }
+
+  function newGame() {
+    const gameName = prompt('Název nové hry:');
+    if (!gameName) return;
+    games[gameName] = { players: [], rounds: [] };
+    saveGames();
+    populateGameTabs();
+    switchGame(gameName);
+  }
+
+  function populateGameTabs() {
+    const tabsDiv = document.getElementById('gameTabs');
+    tabsDiv.innerHTML = '';
+    Object.keys(games).forEach(name => {
+      const tab = document.createElement('button');
+      tab.textContent = name;
+      tab.className = `px-3 py-1 rounded-xl font-semibold ${currentGame === name ? 'bg-purple-600 text-white' : 'bg-gray-200'}`;
+      tab.onclick = () => switchGame(name);
+      tabsDiv.appendChild(tab);
+    });
+  }
+
+  function switchGame(name) {
+    currentGame = name;
+    if (!games[currentGame]) return;
+    populateGameTabs();
+    renderPlayers();
+    renderHistory();
+    renderLeaderboard();
+  }
+
+  function getPlayers() {
+    return games[currentGame].players;
+  }
+
+  function getRounds() {
+    return games[currentGame].rounds;
+  }
+
+  function saveCurrentGame() {
+    saveGames();
   }
 
   function addPlayer() {
-    playerCount++;
-    players.push({ name: `Hráč ${playerCount}` });
-    save();
+    const players = getPlayers();
+    const newPlayer = `Hráč ${players.length + 1}`;
+    players.push({ name: newPlayer });
+    saveCurrentGame();
     renderPlayers();
   }
 
   function renderPlayers() {
+    const players = getPlayers();
     const playersDiv = document.getElementById('players');
     playersDiv.innerHTML = '';
 
@@ -80,15 +128,15 @@
   }
 
   function renamePlayer(i, name) {
-    players[i].name = name;
-    save();
+    getPlayers()[i].name = name;
+    saveCurrentGame();
     renderLeaderboard();
   }
 
   function removePlayer(i) {
-    if (!confirm(`Opravdu smazat hráče ${players[i].name}?`)) return;
-    players.splice(i, 1);
-    save();
+    if (!confirm(`Opravdu smazat hráče ${getPlayers()[i].name}?`)) return;
+    getPlayers().splice(i, 1);
+    saveCurrentGame();
     renderPlayers();
     renderLeaderboard();
   }
@@ -104,12 +152,12 @@
         alert('Překročen maximální počet bodů');
         throw new Error();
       }
-      round.push({ name: players[i].name, points });
+      round.push({ name: getPlayers()[i].name, points });
       input.value = '';
     });
 
-    rounds.push(round);
-    save();
+    getRounds().push(round);
+    saveCurrentGame();
     renderHistory();
     renderLeaderboard();
   }
@@ -118,7 +166,7 @@
     const h = document.getElementById('history');
     h.innerHTML = '';
 
-    rounds.forEach((r, roundIndex) => {
+    getRounds().forEach((r, roundIndex) => {
       const details = document.createElement('details');
       details.className = 'border rounded-xl p-2';
       const summary = document.createElement('summary');
@@ -143,14 +191,14 @@
   }
 
   function updateHistory(roundIndex, playerIndex, value) {
-    rounds[roundIndex][playerIndex].points = parseInt(value) || 0;
-    save();
+    getRounds()[roundIndex][playerIndex].points = parseInt(value) || 0;
+    saveCurrentGame();
     renderLeaderboard();
   }
 
   function renderLeaderboard() {
     const totals = {};
-    rounds.flat().forEach(r => totals[r.name] = (totals[r.name] || 0) + r.points);
+    getRounds().flat().forEach(r => totals[r.name] = (totals[r.name] || 0) + r.points);
 
     const list = document.getElementById('leaderboard');
     list.innerHTML = '';
@@ -170,19 +218,16 @@
 
   function resetGame() {
     if (!confirm('Opravdu resetovat hru?')) return;
-    rounds = [];
-    players = [];
-    playerCount = 0;
-    save();
+    games[currentGame] = { players: [], rounds: [] };
+    saveCurrentGame();
     renderPlayers();
     renderHistory();
     renderLeaderboard();
   }
 
   // INIT
-  renderPlayers();
-  renderHistory();
-  renderLeaderboard();
+  if (Object.keys(games).length > 0) switchGame(Object.keys(games)[0]);
+  else populateGameTabs();
 </script>
 </body>
 </html>
