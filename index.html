@@ -149,17 +149,22 @@
 
   function confirmRound() {
     if (!currentGame) { alert('Vyber nejdříve hru!'); return; }
-    const scores = document.querySelectorAll('#players .score');
-    if (scores.length === 0) { alert('Žádní hráči k potvrzení.'); return; }
 
+    const players = getPlayers();
+    if (players.length === 0) { alert('Žádní hráči k potvrzení.'); return; }
+
+    const scoreInputs = document.querySelectorAll('#players .score');
     const round = [];
     const maxPoints = parseInt(document.getElementById('maxPoints').value);
-    scores.forEach((input, i) => {
-      const points = parseInt(input.value || 0);
+
+    scoreInputs.forEach((input, i) => {
+      let points = parseInt(input.value);
+      if (isNaN(points)) points = 0; // prázdný input = 0
       if (!isNaN(maxPoints) && points > maxPoints) { alert('Překročen maximální počet bodů'); throw new Error(); }
-      round.push({ name: getPlayers()[i].name, points });
+      round.push({ name: players[i].name, points });
       input.value = '';
     });
+
     getRounds().push(round);
     saveCurrentGame();
     renderHistory();
