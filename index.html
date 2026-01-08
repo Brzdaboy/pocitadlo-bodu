@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Počítadlo bodů</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Počítadlo bodů">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-4">
+  <div class="max-w-md mx-auto space-y-4">
+
+    <h1 class="text-2xl font-bold text-center">Počítadlo bodů</h1>
+
+    <!-- Nastavení -->
+    <div class="bg-white rounded-2xl shadow p-4">
+      <label class="block text-sm font-medium mb-1">Maximální počet bodů (volitelné)</label>
+      <input id="maxPoints" type="number" min="1" placeholder="bez limitu" class="w-full border rounded-xl p-2 mb-3" />
+      <button onclick="addPlayer()" class="w-full bg-blue-600 text-white py-2 rounded-xl font-semibold">Přidat hráče</button>
+    </div>
+
+    <!-- Aktuální kolo -->
+    <div class="bg-white rounded-2xl shadow p-4">
+      <h2 class="font-semibold mb-2">Aktuální kolo</h2>
+      <div id="players" class="space-y-3"></div>
+      <button onclick="confirmRound()" class="mt-3 w-full bg-purple-600 text-white py-2 rounded-xl font-semibold">Potvrdit kolo</button>
+    </div>
+
+    <!-- Pořadí -->
+    <div class="bg-white rounded-2xl shadow p-4">
+      <h2 class="font-semibold mb-2">Aktuální pořadí</h2>
+      <ol id="leaderboard" class="text-sm"></ol>
+    </div>
+
+    <!-- Historie -->
+    <div class="bg-white rounded-2xl shadow p-4">
+      <h2 class="font-semibold mb-2">Historie kol</h2>
+      <div id="history" class="text-sm space-y-1"></div>
+      <button onclick="resetGame()" class="mt-3 w-full bg-red-500 text-white py-2 rounded-xl">Reset hry</button>
+    </div>
+
+  </div>
+
+<script>
+  let playerCount = 0;
+  let rounds = JSON.parse(localStorage.getItem('rounds') || '[]');
+  let players = JSON.parse(localStorage.getItem('players') || '[]');
+
+  function save() {
+    localStorage.setItem('rounds', JSON.stringify(rounds));
+    localStorage.setItem('players', JSON.stringify(players));
+  }
+
+  function addPlayer() {
+    playerCount++;
+    players.push({ name: `Hráč ${playerCount}` });
+    save();
+    renderPlayers();
+  }
+
+  function renderPlayers() {
+    const playersDiv = document.getElementById('players');
+    playersDiv.innerHTML = '';
+
+    players.forEach((p, i) => {
+      const div = document.createElement('div');
+      div.className = 'flex gap-3 items-center';
+      div.innerHTML = `
+        <input class="flex-1 font-semibold border-b" value="${p.name}" onchange="renamePlayer(${i}, this.value)" />
+        <input type="number" class="score w-20 border rounded-xl p-2" value="0" min="0" />
+      `;
+      playersDiv.appendChild(div);
+    });
+  }
+
+  function renamePlayer(i, name) {
+    players[i].name = name;
+    save();
+    renderLeaderboard();
+  }
+
+  function confirmRound() {
+    const maxPoints = parseInt(document.getElementById('maxPoints').value);
+    const scores = document.querySelectorAll('.score');
+    const round = [];
+
+    scores.forEach((input, i) => {
+      const points = parseInt(input.value || 0);
+      if (!isNaN(maxPoints) && points > maxPoints) {
+        alert('Překročen maximální počet bodů');
+        throw new Error();
+      }
+      round.push({ name: players[i].name, points });
+      input.value = 0;
+    });
+
+    rounds.push(round);
+    save();
+    renderHistory();
+    renderLeaderboard();
+  }
+
+  function renderHistory() {
+    const h = document.getElementById('history');
+    h.innerHTML = '';
+    rounds.forEach((r, i) => {
+      const div = document.createElement('div');
+      div.textContent = `Kolo ${i + 1}: ` + r.map(x => `${x.name} +${x.points}`).join(', ');
+      h.appendChild(div);
+    });
+  }
+
+  function renderLeaderboard() {
+    const totals = {};
+    rounds.flat().forEach(r => totals[r.name] = (totals[r.name] || 0) + r.points);
+
+    const list = document.getElementById('leaderboard');
+    list.innerHTML = '';
+
+    Object.entries(totals)
+      .sort((a, b) => b[1] - a[1])
+      .forEach(([name, pts], i) => {
+        const li = document.createElement('li');
+        li.className = 'flex justify-between px-3 py-2 rounded-xl mb-1';
+        if (i === 0) li.classList.add('bg-yellow-300', 'font-bold');
+        if (i === 1) li.classList.add('bg-gray-300');
+        if (i === 2) li.classList.add('bg-amber-600', 'text-white');
+        li.innerHTML = `<span>${i + 1}. ${name}</span><span>${pts} b</span>`;
+        list.appendChild(li);
+      });
+  }
+
+  function resetGame() {
+    if (!confirm('Opravdu resetovat hru?')) return;
+    rounds = [];
+    players = [];
+    playerCount = 0;
+    save();
+    renderPlayers();
+    renderHistory();
+    renderLeaderboard();
+  }
+
+  // INIT
+  renderPlayers();
+  renderHistory();
+  renderLeaderboard();
+</script>
+</body>
+</html>
