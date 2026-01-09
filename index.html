@@ -118,7 +118,17 @@
   function renderHistory(){const h=document.getElementById('history'); h.innerHTML=''; getRounds().forEach((r,roundIndex)=>{const details=document.createElement('details'); details.className='border rounded-xl p-2'; const summary=document.createElement('summary'); summary.className='flex justify-between items-center cursor-pointer'; summary.innerHTML=`Kolo ${roundIndex+1} <span class="text-blue-500">✏️ Upravit</span>`; details.appendChild(summary); const contentDiv=document.createElement('div'); contentDiv.className='mt-2 space-y-1'; r.forEach((p,i)=>{ const row=document.createElement('div'); row.className='flex gap-2 items-center'; row.innerHTML=`<span class="flex-1">${p.name}:</span><input type='number' value='${p.points}' min='0' class='border rounded-xl p-1 w-20' onchange='updateHistory(${roundIndex},${i},this.value)' inputmode="numeric" pattern="[0-9]*" />`; contentDiv.appendChild(row);}); details.appendChild(contentDiv); h.appendChild(details);});}
   function updateHistory(roundIndex,playerIndex,value){getRounds()[roundIndex][playerIndex].points=parseInt(value)||0; saveCurrentGame(); renderLeaderboard();}
   function renderLeaderboard(){const totals={}; getRounds().flat().forEach(r=>totals[r.name]=(totals[r.name]||0)+r.points); const list=document.getElementById('leaderboard'); list.innerHTML=''; Object.entries(totals).sort((a,b)=>b[1]-a[1]).forEach(([name,pts],i)=>{ const li=document.createElement('li'); li.className='flex justify-between px-3 py-2 rounded-xl mb-1'; if(i===0) li.classList.add('bg-yellow-300','font-bold'); if(i===1) li.classList.add('bg-gray-300'); if(i===2) li.classList.add('bg-amber-600','text-white'); li.innerHTML=`<span>${i+1}. ${name}</span><span>${pts} b</span>`; list.appendChild(li);});}
-  function resetGame(){if(!confirm('Opravdu resetovat hru?')) return; games[currentGame]={players:[],rounds:[]}; saveCurrentGame(); renderPlayers(); renderHistory(); renderLeaderboard();}
+  function resetGame(){
+  if(!confirm('Opravdu resetovat skóre hry?')) return;
+
+  // smaže se jen skóre (kola), hráči zůstanou
+  games[currentGame].rounds = [];
+
+  saveCurrentGame();
+  renderHistory();
+  renderLeaderboard();
+}
+
 
   if(Object.keys(games).length>0) switchGame(Object.keys(games)[0]);
   else populateGameTabs();
