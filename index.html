@@ -11,127 +11,240 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+
 <body class="bg-gray-100 min-h-screen p-4">
-  <div class="max-w-md mx-auto space-y-4">
+<div class="max-w-md mx-auto space-y-4">
 
-    <h1 class="text-2xl font-bold text-center">Počítadlo bodů</h1>
+  <h1 class="text-2xl font-bold text-center">Počítadlo bodů</h1>
 
-    <!-- Správa her jako horizontální scroll tabs -->
-    <div class="bg-white rounded-2xl shadow p-2 overflow-x-auto flex gap-2">
-      <div id="gameTabs" class="flex gap-2"></div>
-      <button onclick="newGame()" class="px-3 py-1 rounded-xl font-semibold border border-gray-400 text-gray-600">+ Přidat hru</button>
-    </div>
-
-    <!-- Přidat hráče -->
-    <div class="bg-white rounded-2xl shadow p-4">
-      <button onclick="addPlayer()" class="w-full bg-blue-600 text-white py-2 rounded-xl font-semibold">Přidat hráče</button>
-    </div>
-
-    <!-- Aktuální kolo -->
-    <div class="bg-white rounded-2xl shadow p-4">
-      <h2 class="font-semibold mb-2">Aktuální kolo</h2>
-      <div id="players" class="space-y-3"></div>
-      <button onclick="confirmRound()" class="mt-3 w-full bg-purple-600 text-white py-2 rounded-xl font-semibold">Potvrdit kolo</button>
-    </div>
-
-    <!-- Pořadí -->
-    <div class="bg-white rounded-2xl shadow p-4">
-      <h2 class="font-semibold mb-2">Aktuální pořadí</h2>
-      <ol id="leaderboard" class="text-sm"></ol>
-    </div>
-
-    <!-- Historie -->
-    <div class="bg-white rounded-2xl shadow p-4">
-      <h2 class="font-semibold mb-2">Historie kol</h2>
-      <div id="history" class="text-sm space-y-1"></div>
-      <button onclick="resetGame()" class="mt-3 text-red-600 font-semibold">Reset hry</button>
-    </div>
-
+  <!-- Hry -->
+  <div class="bg-white rounded-2xl shadow p-2 overflow-x-auto flex gap-2">
+    <div id="gameTabs" class="flex gap-2"></div>
+    <button onclick="newGame()" class="px-3 py-1 rounded-xl font-semibold border">+ Přidat hru</button>
   </div>
 
+  <!-- Přidat hráče -->
+  <div class="bg-white rounded-2xl shadow p-4">
+    <button onclick="addPlayer()" class="w-full bg-blue-600 text-white py-2 rounded-xl font-semibold">
+      Přidat hráče
+    </button>
+  </div>
+
+  <!-- Aktuální kolo -->
+  <div class="bg-white rounded-2xl shadow p-4">
+    <h2 class="font-semibold mb-2">Aktuální kolo</h2>
+    <div id="players" class="space-y-3"></div>
+    <button onclick="confirmRound()" class="mt-3 w-full bg-purple-600 text-white py-2 rounded-xl font-semibold">
+      Potvrdit kolo
+    </button>
+  </div>
+
+  <!-- Pořadí -->
+  <div class="bg-white rounded-2xl shadow p-4">
+    <h2 class="font-semibold mb-2">Aktuální pořadí</h2>
+    <ol id="leaderboard" class="text-sm"></ol>
+  </div>
+
+  <!-- Historie -->
+  <div class="bg-white rounded-2xl shadow p-4">
+    <h2 class="font-semibold mb-2">Historie kol</h2>
+    <div id="history" class="text-sm space-y-1"></div>
+    <button onclick="resetGame()" class="mt-3 text-red-600 font-semibold">
+      Reset hry
+    </button>
+  </div>
+
+  <!-- Graf -->
+  <div class="bg-white rounded-2xl shadow p-4">
+    <h2 class="font-semibold mb-2">Vývoj bodů</h2>
+    <canvas id="scoreChart" height="200"></canvas>
+  </div>
+
+</div>
+
 <script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js')
-      .then(() => console.log('Service Worker registrován'))
-      .catch(err => console.log('Chyba registrace SW:', err));
+let currentGame = null;
+let games = JSON.parse(localStorage.getItem('games') || '{}');
+let scoreChart = null;
+
+function saveGames(){ localStorage.setItem('games', JSON.stringify(games)); }
+function saveCurrentGame(){ saveGames(); }
+
+function newGame(){
+  const name = prompt('Název nové hry:');
+  if(!name) return;
+  games[name] = { players: [], rounds: [] };
+  saveGames();
+  switchGame(name);
+}
+
+function populateGameTabs(){
+  const el = document.getElementById('gameTabs');
+  el.innerHTML = '';
+  Object.keys(games).forEach(name=>{
+    const b = document.createElement('button');
+    b.textContent = name;
+    b.className = `px-3 py-1 rounded-xl ${currentGame===name?'bg-purple-200':'bg-gray-200'}`;
+    b.onclick = ()=>switchGame(name);
+    el.appendChild(b);
+  });
+}
+
+function switchGame(name){
+  currentGame = name;
+  populateGameTabs();
+  renderPlayers();
+  renderHistory();
+  renderLeaderboard();
+  renderChart();
+}
+
+function getPlayers(){ return games[currentGame].players; }
+function getRounds(){ return games[currentGame].rounds; }
+
+function addPlayer(){
+  getPlayers().push({ name:`Hráč ${getPlayers().length+1}` });
+  saveCurrentGame();
+  renderPlayers();
+  renderLeaderboard();
+  renderChart();
+}
+
+function renderPlayers(){
+  const el = document.getElementById('players');
+  el.innerHTML='';
+  getPlayers().forEach((p,i)=>{
+    el.innerHTML += `
+      <div class="flex gap-2">
+        <input class="flex-1 border-b" value="${p.name}"
+          onchange="renamePlayer(${i},this.value)">
+        <input type="number" class="score w-20 border rounded-xl p-2">
+        <button onclick="removePlayer(${i})"
+          class="bg-red-500 text-white px-2 rounded-xl">X</button>
+      </div>`;
+  });
+}
+
+function renamePlayer(i,name){
+  getPlayers()[i].name=name;
+  saveCurrentGame();
+  renderLeaderboard();
+  renderChart();
+}
+
+function removePlayer(i){
+  if(!confirm('Smazat hráče?')) return;
+  getPlayers().splice(i,1);
+  saveCurrentGame();
+  renderPlayers();
+  renderLeaderboard();
+  renderChart();
+}
+
+function confirmRound(){
+  const inputs = document.querySelectorAll('.score');
+  if([...inputs].every(i=>i.value==='')){
+    alert('Zadej alespoň jeden bod');
+    return;
   }
 
-  let currentGame = null;
-  let games = JSON.parse(localStorage.getItem('games') || '{}');
+  const round=[];
+  inputs.forEach((i,idx)=>{
+    round.push({ name:getPlayers()[idx].name, points:parseInt(i.value||0) });
+    i.value='';
+  });
 
-  function saveGames() { localStorage.setItem('games', JSON.stringify(games)); }
-
-  function newGame() {
-    const gameName = prompt('Název nové hry:');
-    if (!gameName) return;
-    games[gameName] = { players: [], rounds: [] };
-    saveGames();
-    populateGameTabs();
-    switchGame(gameName);
-  }
-
-  function populateGameTabs() {
-    const tabsDiv = document.getElementById('gameTabs');
-    tabsDiv.innerHTML = '';
-    Object.keys(games).forEach(name => {
-      const tabContainer = document.createElement('div');
-      tabContainer.className = 'flex items-center gap-1';
-
-      const tab = document.createElement('button');
-      tab.textContent = name;
-      tab.className = `px-3 py-1 rounded-xl font-semibold ${currentGame === name ? 'bg-purple-200 text-black' : 'bg-gray-200 text-gray-700'}`;
-      tab.onclick = () => switchGame(name);
-
-      const deleteBtn = document.createElement('button');
-      deleteBtn.textContent = '🗑️';
-      deleteBtn.className = 'px-1 py-1 text-sm';
-      deleteBtn.onclick = (e) => {
-        e.stopPropagation();
-        if (confirm(`Opravdu smazat hru "${name}"?`)) {
-          delete games[name];
-          if (currentGame === name) currentGame = Object.keys(games)[0] || null;
-          saveGames();
-          populateGameTabs();
-          if(currentGame) switchGame(currentGame);
-          else document.getElementById('players').innerHTML='';
-        }
-      };
-
-      tabContainer.appendChild(tab);
-      tabContainer.appendChild(deleteBtn);
-      tabsDiv.appendChild(tabContainer);
-    });
-  }
-
-  function switchGame(name) { currentGame = name; if (!games[currentGame]) return; populateGameTabs(); renderPlayers(); renderHistory(); renderLeaderboard(); }
-  function getPlayers() { return games[currentGame].players; }
-  function getRounds() { return games[currentGame].rounds; }
-  function saveCurrentGame() { saveGames(); }
-
-  function addPlayer() { const players = getPlayers(); const newPlayer = `Hráč ${players.length + 1}`; players.push({ name: newPlayer }); saveCurrentGame(); renderPlayers(); }
-  function renderPlayers() { const players = getPlayers(); const playersDiv = document.getElementById('players'); playersDiv.innerHTML=''; players.forEach((p,i)=>{ const div=document.createElement('div'); div.className='flex gap-2 items-center'; div.innerHTML=`<input class="flex-1 font-semibold border-b" value="${p.name}" onchange="renamePlayer(${i}, this.value)" /><input type="number" class="score w-20 border rounded-xl p-2" placeholder="" min="0" inputmode="numeric" pattern="[0-9]*" /><button onclick="removePlayer(${i})" class="px-2 py-1 bg-red-500 text-white rounded-xl">X</button>`; playersDiv.appendChild(div);});}
-  function renamePlayer(i,name){getPlayers()[i].name=name; saveCurrentGame(); renderLeaderboard();}
-  function removePlayer(i){if(!confirm(`Opravdu smazat hráče ${getPlayers()[i].name}?`)) return; getPlayers().splice(i,1); saveCurrentGame(); renderPlayers(); renderLeaderboard();}
-
-  function confirmRound(){const scores=document.querySelectorAll('.score');const round=[];scores.forEach((input,i)=>{const points=parseInt(input.value||0); round.push({name:getPlayers()[i].name,points}); input.value='';}); getRounds().push(round); saveCurrentGame(); renderHistory(); renderLeaderboard();}
-  function renderHistory(){const h=document.getElementById('history'); h.innerHTML=''; getRounds().forEach((r,roundIndex)=>{const details=document.createElement('details'); details.className='border rounded-xl p-2'; const summary=document.createElement('summary'); summary.className='flex justify-between items-center cursor-pointer'; summary.innerHTML=`Kolo ${roundIndex+1} <span class="text-blue-500">✏️ Upravit</span>`; details.appendChild(summary); const contentDiv=document.createElement('div'); contentDiv.className='mt-2 space-y-1'; r.forEach((p,i)=>{ const row=document.createElement('div'); row.className='flex gap-2 items-center'; row.innerHTML=`<span class="flex-1">${p.name}:</span><input type='number' value='${p.points}' min='0' class='border rounded-xl p-1 w-20' onchange='updateHistory(${roundIndex},${i},this.value)' inputmode="numeric" pattern="[0-9]*" />`; contentDiv.appendChild(row);}); details.appendChild(contentDiv); h.appendChild(details);});}
-  function updateHistory(roundIndex,playerIndex,value){getRounds()[roundIndex][playerIndex].points=parseInt(value)||0; saveCurrentGame(); renderLeaderboard();}
-  function renderLeaderboard(){const totals={}; getRounds().flat().forEach(r=>totals[r.name]=(totals[r.name]||0)+r.points); const list=document.getElementById('leaderboard'); list.innerHTML=''; Object.entries(totals).sort((a,b)=>b[1]-a[1]).forEach(([name,pts],i)=>{ const li=document.createElement('li'); li.className='flex justify-between px-3 py-2 rounded-xl mb-1'; if(i===0) li.classList.add('bg-yellow-300','font-bold'); if(i===1) li.classList.add('bg-gray-300'); if(i===2) li.classList.add('bg-amber-600','text-white'); li.innerHTML=`<span>${i+1}. ${name}</span><span>${pts} b</span>`; list.appendChild(li);});}
-  function resetGame(){
-  if(!confirm('Opravdu resetovat skóre hry?')) return;
-
-  // smaže se jen skóre (kola), hráči zůstanou
-  games[currentGame].rounds = [];
-
+  getRounds().push(round);
   saveCurrentGame();
   renderHistory();
   renderLeaderboard();
+  renderChart();
 }
 
+function renderHistory(){
+  const h=document.getElementById('history');
+  h.innerHTML='';
+  getRounds().forEach((r,ri)=>{
+    const d=document.createElement('details');
+    d.innerHTML=`<summary>Kolo ${ri+1}</summary>`;
+    r.forEach((p,pi)=>{
+      d.innerHTML+=`
+        <div class="flex gap-2">
+          <span class="flex-1">${p.name}</span>
+          <input type="number" value="${p.points}"
+            onchange="updateHistory(${ri},${pi},this.value)"
+            class="border w-20 rounded">
+        </div>`;
+    });
+    h.appendChild(d);
+  });
+}
 
-  if(Object.keys(games).length>0) switchGame(Object.keys(games)[0]);
-  else populateGameTabs();
+function updateHistory(r,p,v){
+  getRounds()[r][p].points=parseInt(v)||0;
+  saveCurrentGame();
+  renderLeaderboard();
+  renderChart();
+}
+
+function renderLeaderboard(){
+  const totals={};
+  getPlayers().forEach(p=>totals[p.name]=0);
+  getRounds().flat().forEach(r=>totals[r.name]+=r.points);
+
+  const l=document.getElementById('leaderboard');
+  l.innerHTML='';
+  Object.entries(totals).sort((a,b)=>b[1]-a[1])
+    .forEach(([n,p],i)=>{
+      l.innerHTML+=`<li>${i+1}. ${n} – ${p} b</li>`;
+    });
+}
+
+function resetGame(){
+  if(!confirm('Resetovat skóre?')) return;
+  games[currentGame].rounds=[];
+  saveCurrentGame();
+  renderHistory();
+  renderLeaderboard();
+  renderChart();
+}
+
+function renderChart(){
+  const ctx=document.getElementById('scoreChart');
+  if(scoreChart) scoreChart.destroy();
+
+  const labels=getRounds().map((_,i)=>`Kolo ${i+1}`);
+
+  const datasets=getPlayers().map(p=>{
+    let sum=0;
+    return {
+      label:p.name,
+      data:getRounds().map(r=>{
+        const f=r.find(x=>x.name===p.name);
+        sum+=f?f.points:0;
+        return sum;
+      }),
+      tension:0.3,
+      borderWidth:2,
+      fill:false
+    };
+  });
+
+  scoreChart=new Chart(ctx,{
+    type:'line',
+    data:{ labels, datasets },
+    options:{
+      plugins:{ legend:{ position:'bottom' }},
+      scales:{ y:{ beginAtZero:true }}
+    }
+  });
+}
+
+if(Object.keys(games).length){
+  switchGame(Object.keys(games)[0]);
+}else populateGameTabs();
 </script>
 </body>
 </html>
